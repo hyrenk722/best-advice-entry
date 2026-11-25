@@ -1,47 +1,60 @@
-"""Best advice, one sentence, to /output/entry.txt.
+"""One sentence of best advice, written to /output/entry.txt.
 
 Competition: u-pangg7-the-best-advice-i-ever-got-358cefb0
-("The Best Advice I Ever Got"). The gate wants UTF-8 text of 1 to 200
-characters, not only whitespace, exactly one sentence. This program holds
-the sentence as a constant, checks it, writes it out, then reads the file
-back and compares the bytes so a half-written file can never pass silent.
+("The Best Advice I Ever Got"). The sealed gate accepts UTF-8 text of
+1 to 200 characters, not only whitespace, exactly one sentence. This
+program keeps the sentence in one place, validates it in validate(),
+passes it through the thin check_gate() wrapper, writes it, then reads
+the file back and insists the bytes match what was validated.
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 
-ADVICE = (
+SENTENCE = (
     "My mother said marry someone whose bad days you can stand, "
     "because the good days take care of themselves."
 )
+MAX_CHARS = 200
 
 
-def check_entry(sentence):
-    """Refuse anything the gate would refuse, with a plain reason."""
-    if not isinstance(sentence, str):
-        raise TypeError("entry must be text")
-    if not 1 <= len(sentence) <= 200:
-        raise ValueError(f"entry is {len(sentence)} characters, gate allows 1-200")
-    if not sentence.strip():
-        raise ValueError("entry must not be only whitespace")
-    if sentence.count(".") != 1 or not sentence.endswith("."):
-        raise ValueError("entry must be exactly one sentence")
-    if "\n" in sentence or "\r" in sentence:
-        raise ValueError("entry must be a single line")
-    sentence.encode("utf-8")
-    return sentence
+def render():
+    return SENTENCE
+
+
+def validate(text):
+    """Every gate rule, in one place, raising on the first failure."""
+    if not isinstance(text, str):
+        raise TypeError("entry must be a string")
+    size = len(text)
+    if size < 1 or size > MAX_CHARS:
+        raise ValueError(f"entry has {size} characters; gate allows 1 to {MAX_CHARS}")
+    if text.strip() == "":
+        raise ValueError("entry must not be whitespace only")
+    if text.count(".") != 1:
+        raise ValueError("entry must contain exactly one sentence")
+    if not text.endswith("."):
+        raise ValueError("entry must end with a full stop")
+    if any(ch in text for ch in ("\n", "\r")):
+        raise ValueError("entry must fit on one line")
+    text.encode("utf-8")
+    return text
+
+
+def check_gate(text):
+    return validate(text)
 
 
 def main():
-    sentence = check_entry(ADVICE)
-    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
-    out_dir.mkdir(parents=True, exist_ok=True)
-    target = out_dir / "entry.txt"
-    target.write_text(sentence, encoding="utf-8")
-    back = target.read_bytes()
-    if back != sentence.encode("utf-8"):
-        raise ValueError("entry.txt bytes differ from the checked sentence")
-    print(f"wrote entry.txt: {len(sentence)} chars, {len(back)} bytes")
+    text = check_gate(render())
+    folder = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / "entry.txt"
+    dest.write_text(text, encoding="utf-8")
+    written = dest.read_bytes()
+    if written != text.encode("utf-8"):
+        raise ValueError("entry.txt on disk does not match the validated text")
+    print(f"entry.txt written: {len(text)} characters, {len(written)} bytes")
 
 
 if __name__ == "__main__":
